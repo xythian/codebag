@@ -1,0 +1,30 @@
+.rounded {
+  background-color: #CCE0DE;
+  padding: 0;
+  margin: 0 auto;
+  min-height: 95%;
+}
+
+.rounded:before {
+  background: transparent url(/images/corners/81b1ad/tr.png) scroll no-repeat top right;
+  margin-bottom: -20px;
+  height: 10px;
+  display: block;
+  border: none;
+  content: url(/images/corners/81b1ad/tl.png);
+  padding: 0;
+  line-height: 0.1;
+  font-size: 1px;
+}
+
+.rounded:after {
+  display: block;
+  line-height: 0.1;
+  font-size: 1px;
+  content:  url(/images/corners/81b1ad/bl.png);
+  margin: 0 0 -1px 0;
+  height: 10px;
+  background: white;
+  background: transparent url(/images/corners/81b1ad/br.png) scroll no-repeat bottom right ;
+  padding: 0;
+}

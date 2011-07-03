@@ -1,0 +1,1 @@
+This code is probably obsolete in a world with fancy CSS-enabled rounded corners.
