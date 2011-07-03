@@ -31,16 +31,13 @@ Some libraries that these scripts may depend on when convenient:
 ### Scripts
 
    - python/rounded-corners -- generate rounded corners for use with CSS to roundify boxes; obsolete with modern browsers using PIL.
-
    - python/mergeframe -- Merge a framing image with another image using PIL.
-
    - python/uuids.pyx -- A poor binding of libuuid to Python using Pyrex; written to play with Pyrex.
-
    - python/imagepdf.py -- Assemble a bunch of images into a PDF using ReportLab (to make the PDF) and Singleshot (to read IPTC tags for captions).
 
 [Python]: http://www.python.org/
 [PIL]: http://www.pythonware.com/products/pil/
 [pygame]: http://www.pygame.org/
 [SDL]: http://www.libsdl.org/
-[pygrex]: http://www.cosc.canterbury.ac.nz/~greg/python/Pyrex/
+[pyrex]: http://www.cosc.canterbury.ac.nz/~greg/python/Pyrex/
 [reportlab]: http://www.reportlab.org/
