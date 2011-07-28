@@ -34,10 +34,25 @@ Some libraries that these scripts may depend on when convenient:
    - python/mergeframe -- Merge a framing image with another image using PIL.
    - python/uuids.pyx -- A poor binding of libuuid to Python using Pyrex; written to play with Pyrex.
    - python/imagepdf.py -- Assemble a bunch of images into a PDF using ReportLab (to make the PDF) and Singleshot (to read IPTC tags for captions).
+   - python/gpx2polyline.py -- An old script to take a GPX track and
+     turn it into some JavaScript to render a plot on Google Maps.
+   - python/schedule.py -- An old script that plots Caltrain schedules
+     as a graphic.
 
+## MOO
+
+[LambdaMOO][] is a MUD server.  It is essentially a programmable chat
+server.  That simplifies things a bit since one could write non-chat
+networked applications on top of LambdaMOO.  "MOO" is just a shorthand
+way to refer to LambdaMOO.
+
+This has its own [README](moo/README.md).
+
+[wp-lambdamoo]: http://github.com/xythian/wp-lambdamoo
 [Python]: http://www.python.org/
 [PIL]: http://www.pythonware.com/products/pil/
 [pygame]: http://www.pygame.org/
 [SDL]: http://www.libsdl.org/
 [pyrex]: http://www.cosc.canterbury.ac.nz/~greg/python/Pyrex/
 [reportlab]: http://www.reportlab.org/
+[LambdaMOO]: http://www.lambda.moo.mud.org/

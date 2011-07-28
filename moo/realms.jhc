@@ -1,0 +1,1448 @@
+--- begin module ---
+Name: realm system module
+Date: Thu Jan 31 00:02:51 2002 PST
+Type: standard/1.0
+Boundary: ---module/body-item-boundary
+Objects: realm nexus_realm realm_master realm_room realm_exit realm_builder realm_walking_utils realm_help
+Locals: 
+
+Type: object
+Reference: realm
+Owner: realm_master
+Parent: $containing_object
+Name: generic realm
+Flags: r f 
+
+---module/body-item-boundary
+Type: object
+Reference: nexus_realm
+Owner: realm_master
+Parent: realm
+Name: generic nexus realm
+Flags: r 
+
+---module/body-item-boundary
+Type: object
+Reference: realm_master
+Owner: realm_master
+Parent: $player
+Name: realm_master
+Flags: player 
+
+---module/body-item-boundary
+Type: object
+Reference: realm_room
+Owner: realm_master
+Parent: $room
+Name: generic realm room
+Flags: r f 
+
+---module/body-item-boundary
+Type: object
+Reference: realm_exit
+Owner: realm_master
+Parent: $exit
+Name: generic realm crossing exit
+Flags: r f 
+
+---module/body-item-boundary
+Type: object
+Reference: realm_builder
+Owner: wizard
+Parent: $builder
+Name: generic realm-aware builder
+Flags: r 
+
+---module/body-item-boundary
+Type: object
+Reference: realm_walking_utils
+Owner: wizard
+Parent: $walking_utils
+Name: realm-aware walking utils
+Flags: r 
+
+---module/body-item-boundary
+Type: object
+Reference: realm_help
+Owner: realm_master
+Parent: $generic_help
+Name: realm system help
+Flags: r 
+
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: set_builders set_entry
+Owner: realm_master
+Perms: rx
+Args: this none this
+
+"This is the standard :set_foo verb.  It allows the property to be set if called by this or called with adequate permissions (this's owner or wizardly).";
+if (caller == this || $perm_utils:controls(caller_perms(), this))
+  return this.(verb[5..length(verb)]) = args[1];
+else
+  return E_PERM;
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: is_buildable_by
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: add_builder
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+who = args[1];
+if (caller == this || typeof(this:ok_admin(caller_perms())) != STR)
+  return this.builders = setadd(this.builders, who);
+else
+  return tostr(E_PERM);
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: rm_builder
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+who = args[1];
+if (caller == this || typeof(this:ok_admin(caller_perms())) != STR)
+  return this.builders = setremove(this.builders, who);
+else
+  return tostr(E_PERM);
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: add_room
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+room = args[1];
+if (this:ok_builder(caller_perms()) && this:ok_builder(room.owner) && $object_utils:isa(room, $realm.room))
+  set_task_perms(room.owner);
+  room:moveto(this);
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: rm_room
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: builders
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+return setadd(this.builders, this.owner);
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: ok_admin
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+"Usage:  :ok_admin(who)";
+"";
+who = args[1];
+return $perm_utils:controls(who, this) || $string_utils:pronoun_sub(this.noadmin_msg, who);
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: ok_builder
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+"Usage:  :ok_builder(who)";
+"";
+who = args[1];
+return who in this:builders() || typeof(this:ok_admin(who)) != STR || $string_utils:pronoun_sub(this.nobuilder_msg, who);
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: ok_exit ok_entrance
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+"Usage:  :ok_exit(exit)";
+"";
+exit = args[1];
+srealm = exit.source:realm();
+drealm = exit.dest:realm();
+interrealm = !(this == srealm && this == drealm);
+if (!interrealm)
+  return 1;
+elseif ($object_utils:isa(srealm, $realm.nexus) || $object_utils:isa(drealm, $realm.nexus))
+  return 1;
+else
+  return 0;
+endif
+"return (this == srealm) && (this == drealm) || $object_utils:isa(srealm, $realm.nexus) && (!valid(this:first_room())))) || ($object_utils:isa(drealm, $realm.nexus) && (!valid(this:first_room()))";
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: acceptable
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+return this:ok_builder(args[1].owner);
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: first_room
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+fr = $nothing;
+for i in (this:contents())
+  for e in (i.exits)
+    e.dest:realm() != this && (fr = i);
+  endfor
+endfor
+return fr;
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: @check-connections
+Owner: wizard
+Perms: rd
+Args: this none none
+
+if (!this:ok_builder(player))
+  return player:tell(E_PERM);
+endif
+errors = {};
+su = $string_utils;
+errors = this:_check();
+if (!errors)
+  player:tell("No errors.");
+else
+  player:tell("Notes for ", this:dname(), ":");
+  for error in (errors)
+    {room, roomerrs, exiterrs} = error;
+    if (roomerrs)
+      player:tell("For ", su:nn(room), ": ", $string_utils:english_list(roomerrs));
+    else
+      player:tell("For ", su:nn(room), ":");
+    endif
+    if (exiterrs)
+      player:tell_lines($string_utils:columnize_with_headers({"Type", "Note", "Obj", "Source", "Dest"}, exiterrs));
+    endif
+  endfor
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: external_connections
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+"this should be cached somehow, probably";
+"INVARIENT: there is only one interface between any two realms";
+"INVARIENT: any interface between realms is two-way";
+realms = {};
+doorways = {};
+entrances = {};
+exits = {};
+for room in (this:contents())
+  for exit in (`room.exits ! E_PROPNF => {}')
+    try
+      other_realm = exit.dest:realm();
+      if (other_realm != this)
+        realms = {@realms, other_realm};
+        doorways = {@doorways, room};
+        exits = {@exits, exit};
+        entrances = {@entrances, $nothing};
+        for back in (exit.dest.exits)
+          if (back.dest == room)
+            entrances[$] = back;
+            break back;
+          endif
+        endfor
+      endif
+    except (ANY)
+      continue exit;
+    endtry
+  endfor
+endfor
+return {realms, doorways, entrances, exits};
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: find_realm_path
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+"find a path between two realms";
+"recursive; make a non-recursive one later";
+{source, dest} = args;
+realms = {source};
+paths = {{}};
+which = 1;
+while (which <= length(realms))
+  check = realms[which];
+  path = paths[which];
+  which = which + 1;
+  {rlms, doors, ents, exits} = check:external_connections();
+  for i in [1..length(rlms)]
+    cur = rlms[i];
+    if (cur == dest)
+      return {@path, {cur, doors[i], ents[i], exits[i]}};
+    elseif (!(cur in realms) && $object_utils:isa(cur, $realm))
+      realms = {@realms, cur};
+      paths = {@paths, {@path, {cur, doors[i], ents[i], exits[i]}}};
+    endif
+  endfor
+endwhile
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: _check_exit
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+{exit} = args;
+if (!$object_utils:isa(exit, $exit))
+  raise("not exit");
+elseif (!$object_utils:isa(exit.dest, $room))
+  raise("bad dest");
+elseif (!$object_utils:isa(exit.source, $room))
+  raise("bad source");
+elseif (!this:ok_exit(exit))
+  raise("interrealm");
+else
+  return 1;
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: _check
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+if (caller != this)
+  raise(E_PERM);
+endif
+errors = {};
+for room in (this:contents())
+  {roomerr, exiterr} = this:_check_room(room);
+  $command_utils:suspend_if_needed(0);
+  if (roomerr || exiterr)
+    errors = {@errors, {room, roomerr, exiterr}};
+  endif
+endfor
+return this:find_unattached_exits(errors, this:contents());
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: _check_room
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+{room} = args;
+su = $string_utils;
+if (caller != this)
+  raise(E_PERM);
+endif
+if ($object_utils:isa(room, $room))
+  badexits = {};
+  roomerrs = {};
+  if (!room.exits)
+    roomerrs = {@roomerrs, "no exits"};
+  endif
+  if (!room.entrances)
+    roomerrs = {@roomerrs, "no entrances"};
+  endif
+  for exit in (room.exits)
+    try
+      this:_check_exit(exit);
+    except v (ANY)
+      badexits = {@badexits, {"exit", v[1], @this:_exit_info(exit)}};
+    endtry
+  endfor
+  for exit in (room.exits)
+    try
+      this:_check_exit(exit);
+    except v (ANY)
+      badexits = {@badexits, {"entr", v[1], @this:_exit_info(exit)}};
+    endtry
+  endfor
+  badexits = {@badexits, @this:_check_exit_names(room.exits)};
+  $command_utils:suspend_if_needed(0);
+  return {roomerrs, badexits};
+else
+  return {{"not a room"}, {}};
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: find_unattached_exits
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+{roomerrs, rooms} = args;
+if (caller != this)
+  raise(E_PERM);
+endif
+su = $string_utils;
+for exit in ($object_utils:leaves($exit))
+  if (exit.source in rooms && $object_utils:isa(exit.source, $room))
+    if (!(exit in exit.source.exits))
+      note = {"exit", "unattached", @this:_exit_info(exit)};
+      if (idx = $List_utils:iassoc(exit.source, roomerrs))
+        roomerrs[idx][3] = {@roomerrs[idx][3], note};
+      else
+        roomerrs = {@roomerrs, {exit.source, {}, {note}}};
+      endif
+    endif
+  endif
+  if (exit.dest in rooms && $object_utils:isa(exit.dest, $room))
+    if (!(exit in exit.dest.entrances))
+      note = {"entr", "unattached", su:nn(exit), @this:_exit_info(exit)};
+      if (idx = $List_utils:iassoc(exit.source, roomerrs))
+        roomerrs[idx][3] = {@roomerrs[idx][3], note};
+      else
+        roomerrs = {@roomerrs, {exit.dest, {}, {note}}};
+      endif
+    endif
+  endif
+  $command_utils:suspend_if_needed(0);
+endfor
+return roomerrs;
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: clean_builders
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+if (this:ok_admin(caller_perms()))
+  victims = {};
+  for dude in (this.builders)
+    if (!$object_utils:isa(dude, $player))
+      victims = {@victims, dude};
+      this.builders = setremove(this.builders, dude);
+    endif
+  endfor
+  return victims;
+else
+  raise(E_PERM);
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: _check_exit_names
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+set_task_perms(caller_perms());
+{exits} = args;
+allaliases = {};
+allexits = {};
+notes = {};
+for exit in (exits)
+  oneword = 0;
+  for alias in ({exit.name, @exit.aliases})
+    if (!index(alias, " "))
+      oneword = 1;
+    endif
+    if (idx = alias in allaliases)
+      if (allexits[idx] != exit)
+        notes = {@notes, {"exit", "conflict", @this:_exit_info(exit)}};
+        notes = {@notes, {"exit", "conflict", @this:_exit_info(allexits[idx])}};
+      endif
+    else
+      allaliases = {@allaliases, alias};
+      allexits = {@allexits, exit};
+    endif
+  endfor
+  if (!oneword)
+    notes = {@notes, {"exit", "no 1word", @this:_exit_info(exit)}};
+  endif
+endfor
+return notes;
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: _exit_info
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+set_task_perms(caller_perms());
+{exit} = args;
+su = $string_utils;
+return {su:nn(exit), `su:nn(exit.source) ! E_PROPNF => "n/a"', `su:nn(exit.dest) ! E_PROPNF => "n/a"', su:nn(exit.owner)};
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: match_type_object
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+if (this == $realm)
+  return $string_utils:match(args[1], d = $object_utils:leaves(this), "name", d, "aliases");
+else
+  return this:match(args[1]);
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: can_add_entrance
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+{who, entrance} = args;
+source = entrance.source;
+dest = entrance.dest;
+if (!(dest in this:contents()))
+  return 0;
+elseif (typeof(this:ok_builder(who)) == STR)
+  return 0;
+elseif (!this:ok_entrance(entrance))
+  return 0;
+else
+  return 1;
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm
+Name: can_add_exit
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+{who, exit} = args;
+source = exit.source;
+dest = exit.dest;
+if (!(source in this:contents()))
+  return 0;
+elseif (typeof(this:ok_builder(who)) == STR)
+  return 0;
+elseif (!this:ok_exit(exit))
+  return 0;
+else
+  return 1;
+endif
+---module/body-item-boundary
+Type: property-defined
+Object: realm
+Name: nexus
+Owner: realm_master
+Perms: r
+
+module.obj_nexus_realm
+---module/body-item-boundary
+Type: property-defined
+Object: realm
+Name: builders
+Owner: realm_master
+Perms: r
+
+{}
+---module/body-item-boundary
+Type: property-defined
+Object: realm
+Name: entry
+Owner: realm_master
+Perms: r
+
+#-1
+---module/body-item-boundary
+Type: property-defined
+Object: realm
+Name: noadmin_msg
+Owner: realm_master
+Perms: rc
+
+{$pronoun_sub, "do", {"name", "player", {"dc"}}, " ", {"verb", "player", "is"}, " not allowed to administer ", {"name", "thing", {"d"}}, "."}
+---module/body-item-boundary
+Type: property-defined
+Object: realm
+Name: nobuilder_msg
+Owner: realm_master
+Perms: rc
+
+{$pronoun_sub, "do", "Sorry, ", {"name", "player", {"dc"}}, " ", {"verb", "player", "is"}, " not permitted to build in ", {"name", "thing", {"d"}}, "."}
+---module/body-item-boundary
+Type: property-defined
+Object: realm
+Name: room
+Owner: realm_master
+Perms: r
+
+module.obj_realm_room
+---module/body-item-boundary
+Type: property-defined
+Object: realm
+Name: exit
+Owner: realm_master
+Perms: r
+
+module.obj_realm_exit
+---module/body-item-boundary
+Type: property-defined
+Object: realm
+Name: help
+Owner: realm_master
+Perms: r
+
+module.obj_realm_help
+---module/body-item-boundary
+Type: verb
+Object: nexus_realm
+Name: is_buildable_by
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+---module/body-item-boundary
+Type: verb
+Object: nexus_realm
+Name: make_realm
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+names = args[1];
+attach_point = args[2];
+set_task_perms(caller_perms());
+who = caller_perms();
+roomname = names;
+if (typeof(msg = this:ok_create_realm(who, attach_point)) == STR)
+  return msg;
+elseif (typeof(realm = who:_create($realm)) != OBJ)
+  return "Error creating realm: " + tostr(realm);
+elseif (typeof(namerr = $building_utils:set_names(realm, names)) == ERR)
+  $recycler:_recycle(realm);
+  return "Error setting realm names: " + tostr(namerr);
+elseif (typeof(room = who:_create($realm.room)) != OBJ)
+  $recycler:_recycle(realm);
+  return "Error creating first room: " + tostr(room);
+elseif (typeof(namerr = $building_utils:set_names(room, roomname)) == ERR)
+  $recycler:_recycle(realm);
+  $recycler:_recycle(room);
+  return "Error setting room names: " + tostr(namerr);
+elseif (typeof(eno = move(room, realm)) == ERR)
+  $recycler:_recycle(realm);
+  $recycler:_recycle(room);
+  return "Error moving first room into realm: " + tostr(eno);
+elseif (!(ein = $building_utils:make_exit(names, attach_point, room, room.owner, $realm.exit)))
+  $recycler:_recycle(realm);
+  $recycler:_recycle(room);
+  return "Error creating link exit.";
+elseif (!(eout = $building_utils:make_exit("out", room, attach_point, room.owner, $realm.exit)))
+  $recycler:_recycle(realm);
+  $recycler:_recycle(room);
+  return "Error creating link exit.";
+else
+  eout[1].oarrive_msg = $pronoun_sub.("two-letter"):parse("appears from another realm.");
+  eout[1].oleave_msg = $pronoun_sub.("two-letter"):parse("leaves the realm.");
+  return tostr("Realm ", $string_utils:nn(realm), " created with initial room ", $string_utils:nn(room), " connected via ", $string_utils:nn(ein[1]), " and ", $string_utils:nn(eout[1]), " to ", $string_utils:nn(attach_point), ".");
+endif
+---module/body-item-boundary
+Type: verb
+Object: nexus_realm
+Name: ok_create_realm
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+person = args[1];
+attach_point = args[2];
+if (!$object_utils:isa(attach_point, $realm.room) || attach_point:realm() != this)
+  "sanity check";
+  return attach_point:dnamec() + " is not in realm " + this:dname() + "!";
+else
+  "for now, we let anyone make a realm";
+  return 1;
+endif
+---module/body-item-boundary
+Type: verb
+Object: nexus_realm
+Name: ok_name
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+"Usage:  :ok_name(name)";
+"";
+"is a name ok, if not, say why, if so, return 1";
+name = args[1];
+return 1;
+---module/body-item-boundary
+Type: verb
+Object: nexus_realm
+Name: ok_exit
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+"Usage:  :ok_exit(exit)";
+"";
+exit = args[1];
+return 1;
+---module/body-item-boundary
+Type: verb
+Object: realm_master
+Name: name
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+return strsub(pass(@args), "_", " ");
+---module/body-item-boundary
+Type: verb
+Object: realm_room
+Name: @add-realm
+Owner: wizard
+Perms: rd
+Args: any any any
+
+set_task_perms(player);
+if (!$object_utils:isa(realm = player.location:realm(), $realm.nexus))
+  player:tell("You have to be in a nexus realm in order to create realms.");
+elseif (!$object_utils:isa(player, $builder))
+  player:tell("You aren't a builder.");
+elseif (!dobjstr)
+  player:tell("Usage: ", verb, " <realm name>");
+elseif (typeof(msg = realm:ok_create_realm(player, player.location)) == STR)
+  player:tell(msg);
+elseif (typeof(realm:ok_name(dobjstr)) == STR)
+  player:tell(msg);
+else
+  player:tell(realm:make_realm(dobjstr, player.location));
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm_room
+Name: @builder*s @rmbuilder
+Owner: wizard
+Perms: rd
+Args: any any any
+
+set_task_perms(player);
+realm = this:realm();
+if (!$object_utils:isa(realm, $realm))
+  return player:tell("This room is not in a realm!");
+endif
+if (typeof(msg = realm:ok_admin(player)))
+  player:Tell(msg);
+else
+  if (!dobjstr)
+    cleanup = realm:clean_builders();
+    if (cleanup)
+      plural = length(cleanup) == 1 ? "" | "s";
+      player:tell("Non-player", plural, " ", $string_utils:namec_list(cleanup), " removed from builder list.");
+    endif
+    if (typeof(r = realm:builders()) == LIST)
+      player:tell($string_utils:namec_list(r), " ", length(r) == 1 ? "is" | "are", " allowed to build in ", realm:dname(), ".");
+    else
+      player:tell(r);
+    endif
+    return;
+  elseif (verb == "@rmbuilder")
+    notflag = 1;
+  elseif (dobjstr[1] == "!")
+    notflag = 1;
+    dobjstr = dobjstr[2..length(dobjstr)];
+  else
+    notflag = 0;
+  endif
+  result = $string_utils:match_player(dobjstr);
+  if ($command_utils:player_match_failed(result, dobjstr))
+    return;
+  else
+    if (typeof(builders = realm:builders()) != LIST)
+      return player:tell(builders);
+    endif
+    if (notflag)
+      if (!(result in builders))
+        player:tell(result:dnamec(), " doesn't appear to be in the builders list of ", realm:dname(), ".");
+      elseif (typeof(r = realm:rm_builder(result)) == LIST)
+        player:tell(result:dnamec(), " removed from the builders list of ", realm:dname(), ".");
+      else
+        player:tell(r);
+      endif
+    else
+      if (result in builders)
+        player:tell(result:name(), " is already an allowed builder of ", realm:dname(), ".");
+      elseif (typeof(r = realm:add_builder(result)) == LIST)
+        player:tell(result:dnamec(), " added to the builders list of ", realm:dname(), ".");
+      else
+        player:tell(r);
+      endif
+    endif
+  endif
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm_room
+Name: realm
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+"Return the realm this room belongs to";
+return this.location;
+---module/body-item-boundary
+Type: verb
+Object: realm_room
+Name: add_entrance
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+exit = args[1];
+{entrance, @rest} = args;
+set_task_perms(caller_perms());
+realm = this:realm();
+if (realm:can_add_entrance(caller_perms(), entrance))
+  return pass(@args);
+else
+  return 0;
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm_room
+Name: recycle
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+"Squawk at owners of exits that were linked to a now-recycled room";
+owned = {};
+for o in ($set_utils:union(this.entrances, this.exits))
+  i = $list_utils:iassoc(o.owner, owned);
+  if (i)
+    owned[i][2] = {@owned[i][2], o};
+  else
+    owned = {@owned, {o.owner, {o}}};
+  endif
+endfor
+for item in (owned)
+  owner = item[1];
+  exits = item[2];
+  if (owner == player)
+    owner:tell("The following exits, which you own and which were connected to " + this:dname() + ", the room you just recycled, now have invalid connections: " + $string_utils:iname_and_number_list(exits) + ".  It's very important that you either @recycle the invalid exits, or reconnect them to valid rooms.  Owners of any other exits that were connected to " + this:dname() + " are being notified automatically by MOOmail.");
+  elseif (owner != player)
+    if ($network:is_connected(owner))
+      owner:tell(this:dnamec() + " has been recycled.  The following exits, which you own and which were connected to " + this:dname() + ", now have invalid connections: " + $string_utils:iname_and_number_list(exits) + ".  It's important that you either @recycle the invalid exits, or reconnect them to valid rooms.  If you aren't sure what you need to do about this message, please ask Tari or Percival for help at your earliest opportunity.");
+    endif
+    subject = "Invalid exits";
+    msg = "The room called \"" + this:dname() + "\", which was owned by " + this.owner:dname() + ", has been recycled.  The following exits, which you own and which were connected to " + this:dname() + ", now have invalid connections: " + $string_utils:iname_and_number_list(exits) + ".  It's important that you either @recycle the invalid exits, or reconnect them to valid rooms.  If you aren't sure what you need to do about this message, please ask Tari or Percival for help at your earliest opportunity.";
+    $mail_agent:send_message($recycler, {owner}, {subject, {#2}}, msg);
+  endif
+endfor
+"Make a mild attempt to keep people and objects from ending up in #-1 when people recycle a room";
+if (caller == this || $perm_utils:controls(caller_perms(), this))
+  "... try sending them home...";
+  for x in (this.contents)
+    if (is_player(x))
+      if (typeof(x.home) == OBJ && valid(x.home))
+        x:moveto(x.home);
+      endif
+      if (x.location == this)
+        move(x, $player_start);
+      endif
+    elseif (valid(x.owner))
+      x:moveto(x.owner);
+    endif
+  endfor
+  "... then try spilling them out onto the floor of enclosing room if any";
+  if (valid(this.location))
+    for x in (this.contents)
+      x:moveto(this.location);
+    endfor
+  endif
+  pass(@args);
+else
+  return E_PERM;
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm_room
+Name: can_add_exit can_add_entrance can_remove_exit can_remove_exit can_read_exits can_read_entrances
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+{who, @rest} = args;
+if (r = pass(@args))
+  return r;
+else
+  return typeof(this:realm():ok_builder(who)) != STR;
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm_room
+Name: add_exit
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+{exit, @rest} = args;
+set_task_perms(caller_perms());
+realm = this:realm();
+if (realm:can_add_exit(caller_perms(), exit))
+  return pass(@args);
+else
+  return 0;
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm_builder
+Name: @dig
+Owner: wizard
+Perms: r
+Args: any any any
+
+set_task_perms(player);
+if (!(dobjstr && iobjstr))
+  player:notify(tostr("Usage:  ", verb, " <exit-description> to <new-room-name-or-old-room-object-number>"));
+  return;
+endif
+realm = `player.location:realm() ! E_VERBNF';
+if (realm == E_VERBNF)
+  return player:tell("You do not appear to be in a realm.");
+elseif (typeof(msg = realm:ok_builder(player)) == STR)
+  return player:tell(msg);
+endif
+exit_spec = dobjstr;
+room_spec = iobjstr;
+other_room = $code_utils:toobj(room_spec);
+parent = player:building_option("room");
+if (typeof(parent) != OBJ)
+  parent = $room;
+endif
+if (!$object_utils:isa(parent, $room))
+  return player:tell(parent:dname(), " does not appear to be a descendant of ", $room:dname(), "; thus you cannot use @dig to create it.   Check your @building-o.");
+endif
+if (typeof(other_room) == ERR)
+  other_room = player:_create(parent);
+  if (typeof(other_room) == ERR)
+    player:notify(tostr(other_room));
+    return;
+  endif
+  $building_utils:set_names(other_room, room_spec);
+  move(other_room, realm);
+  if (other_room.aliases == {other_room.name})
+    player:notify(tostr($string_utils:nn(other_room), " created."));
+  else
+    player:notify(tostr(other_room.name, " (", other_room, ") created, with aliases ", $string_utils:english_list(other_room.aliases), "."));
+  endif
+elseif (!valid(player.location) || !($room in $object_utils:ancestors(player.location)))
+  player:notify(tostr("You may only use the ", verb, " command from inside a room."));
+  return;
+elseif (!valid(other_room) || !$object_utils:isa(other_room, $room))
+  player:notify(tostr(other_room, " doesn't look like a room to me..."));
+  return;
+elseif (realm != (other_realm = `other_room:realm() ! ANY => #-1'))
+  if (!$object_utils:isa(realm, $realm.nexus) && !$object_utils:isa(other_realm, $realm.nexus))
+    player:notify(tostr("Neither the realm you are in, ", realm:dname(), ", nor the realm the room you're trying to dig to are nexus realms."));
+    return;
+  endif
+endif
+if (exit_spec)
+  exits = $string_utils:explode(exit_spec, "|");
+  if (!(length(exits) in {1, 2}))
+    player:notify("The exit-description must have the form");
+    player:notify("     [name:]alias,...,alias");
+    player:notify("or   [name:]alias,...,alias|[name:]alias,...,alias");
+    return;
+  endif
+  exit_parent = typeof(parent = this:building_option("exit")) == OBJ ? parent | $exit;
+  to_ok = $building_utils:make_exit(exits[1], player.location, other_room, player, exit_parent);
+  if (to_ok && length(exits) == 2)
+    $building_utils:make_exit(exits[2], other_room, player.location, player, exit_parent);
+  endif
+endif
+---module/body-item-boundary
+Type: verb
+Object: realm_walking_utils
+Name: dijkstra
+Owner: wizard
+Perms: rxd
+Args: this none this
+
+"dikstra(from, to, who)";
+"Returns a bunch of information";
+"{shortpath, shortcost, crooms, cdata, start point for decide}";
+{from, destination, who, ?oktosuspend = 0} = args;
+destination = destination:where_am_i();
+queue = {{from, 0, 0, 1}};
+crooms = {from};
+cdata = {{0, $nothing, 0}};
+"TO INFINITY ... AND BEYOND";
+infinity = $maxint;
+havepath = 0;
+shortcost = infinity;
+shortpath = infinity;
+try
+  realmpath = $realm:find_realm_path(from:realm(), destination:realm());
+  if (realmpath)
+    realms = {from:realm(), @$list_utils:slice(realmpath)};
+  endif
+except (ANY)
+  realms = {};
+endtry
+while searching (queue)
+  {room, source, cost, roomidx} = queue[1];
+  queue = listdelete(queue, 1);
+  for exit in (`room.exits ! E_PROPNF => {}')
+    if (!exit:obvious(who, destination))
+      continue exit;
+    endif
+    if (realms && !`exit.dest:realm() in realms ! ANY')
+      continue exit;
+    endif
+    dest = exit.dest;
+    if (dest == room || (source && dest == crooms[source]))
+      "no backtracking";
+      continue exit;
+    endif
+    "are we THERE yet?";
+    "Relax";
+    "base cost of 200 so exit and room may each contribute down to -100 to lure people in";
+    "but that doesn't work because this makes any longer path cost more anyway.  it still has the same bugs as feeding negative edge costs to dijkstra, it's just harder to see. --bjj 11/9/1999";
+    current_cost = cost + exit:walking_cost(who, from, destination, cdata[roomidx][2]);
+    if (!(toroom = dest in crooms) && current_cost < shortcost)
+      "current cost is infinity, so we have a better path";
+      crooms = {@crooms, dest};
+      cdata = {@cdata, {roomidx, exit, current_cost}};
+      entry = {dest, roomidx, current_cost, length(crooms)};
+      if (!queue || current_cost < queue[1][3])
+        queue = {entry, @queue};
+      else
+        for i in [2..l = length(queue)]
+          if (current_cost < queue[i][3])
+            queue = listinsert(queue, entry, i);
+            break i;
+          endif
+        endfor
+        if (l == length(queue))
+          queue = {@queue, entry};
+        endif
+      endif
+      if (dest == destination && !havepath)
+        havepath = current_cost;
+        shortcost = current_cost;
+        shortpath = this:decode_space(cdata, length(cdata));
+      endif
+    elseif (!toroom)
+    elseif (cdata[toroom][3] > current_cost)
+      "Replace that link, this one is better";
+      cdata[toroom] = {roomidx, exit, current_cost};
+    endif
+    if ($command_utils:running_out_of_time())
+      if (havepath)
+        break searching;
+      else
+        if (oktosuspend)
+          suspend(0);
+        else
+          "give up!";
+          break searching;
+        endif
+      endif
+    endif
+  endfor
+endwhile
+if (havepath)
+  here = destination in crooms;
+  "{shortpath, shortcost, crooms, cdata, start point for decide}";
+  return {shortpath, shortcost, crooms, cdata, here};
+else
+  return 0;
+endif
+"Copied from walking utils (#183):dijkstra by Ken (#394) Wed Jan 30 20:40:25 2002 PST";
+---module/body-item-boundary
+Type: verb
+Object: realm_help
+Name: _get_nexus_names
+Owner: realm_master
+Perms: rxd
+Args: this none this
+
+names = {};
+for nexus in ($object_utils:leaves($realm.nexus))
+  if (nexus.contents)
+    names = {@names, nexus.contents[1]:dname()};
+  endif
+endfor
+return $string_utils:english_list(names);
+---module/body-item-boundary
+Type: property-defined
+Object: realm_help
+Name: realms
+Owner: realm_master
+Perms: rc
+
+{"*subst*", "REALMS", "======", "", "This MOO uses a realm system to organize its topography.  A realm is a group of linked rooms that is devoted to a particular theme or project.  All rooms are in a realm (and only one realm).  You must own or be a registered builder in a realm in order to build rooms here.  The owner of a realm can register the people who will build there.  You can be a builder in more than one realm.", "", "Anyone can make a realm.  A realm can have only one builder, or the person who makes the realm can register others to build there.  You might want to start a realm if you have a theme or project in mind and mean to devote some effort yourself or with other builders to making an interesting and/or useful place of your realm.  ", "", "(Of course, realms with just a room or two usually aren't that great a use of resources, so if all you're after is a room of your own or a place to mess around with building or to make a room or so that doesn't fit with the theme of your group or class realm, please check out the Chaos realm, where anyone who wants to can be registered to build.  You can build anything you want in Chaos--that's it's theme.  Just do `walk to chaos', and then do `read notice' to find out how to register.)", "", "If you have a project that needs its own realm, here's what you need to know:", "", "You can only start a realm from a realm nexus.  Current nexus rooms are %[$realm.help:_get_nexus_names()].  If you don't have a strong preference for one of those nexuses, pick the one that currently has the fewest realm exits in it--having things spread out sort of evenly is more interesting for people who are exploring.", "", "The command to add a realm", "--- creates the realm (the realm object is a container all the rooms in your realm will live inside). ", "--- digs the first room of the realm. ", "--  places the two exits between your realm and the nexus room.  ", "The realm, the first room of the realm, and the exit from the nexus into the realm will all have the name you give as the realm name.  The exit from the realm out to the nexus room will be named `out.'  ", "", "So with that one command, you get four objects.  You can describe them, @rename them, set messages on them, and so forth, just like with any other objects you make, but one word of caution:  It's in your best interest not to @recycle any of those four items unless you're getting rid of the whole realm; in particular, UNDER NO CIRCUMSTANCES SHOULD YOU @RECYCLE THE REALM CONTAINER unless you're certain that all the rooms in the realm have already been recycled, and your intention is to get rid of the realm altogether.  If you can still enter a realm, there is still at least one room in it.", "", "Two notes about your exit from the nexus into your realm:", "        If your realm has a name that is more than one word long, you'll find that the exit into your realm doesn't seem to work.  That's because it got the same name as the realm, and exits with names more than one word long are problematic.  You can easily fix this:  @rename the problem exit to a one-word name, such as the first word or most important word in the name of your realm.  Just be careful not to give the exit a name that matches the name or alias of an exit to any other realm in the same nexus, or neither exit will work.  ", "        Please don't set the integration messages of the exit from the nexus room into your realm--if we all did that, the nexus rooms would have horribly long and confusing descriptions.", "", "After creating your realm, you can register the people who are allowed to build in that realm.  The only special `power' you have over your realm is that of registering builders in the realm.  You can't, for example, limit where they can build or what they can build, or get rid of things you don't like.  Obviously this means that the builders of a realm need to make agreements about the theme and topology of the realm.", "", "Commands:", "", "@add-realm <realmname>", "        (only works in a nexus room)", "        creates a new realm, the first room of the realm, and the exits to and from the first room to the nexus room", "", "@builder", "        (only works for realm owners in their own realms)", "        shows the realm-owner the list of builders registered in eir realm", "", "@builder <playername>", "        (only works for realm owners in their own realms)", "        adds the named player to the list of registered builders in a realm", "", "@rmbuilder <playername>", "        (only works for realm owners in their own realms)", "        removes the named player from the list of registered builders in a realm"}
+---module/body-item-boundary
+Type: property-defined
+Object: realm_help
+Name: realms-install
+Owner: realm_master
+Perms: rc
+
+{"The realm system is designed to segment the topography on a MOO into areas called \"realms\".   Within a given realm, users can be granted the ability to link in exits without requesting permission from room owners.  Rooms in a realm can only link to other rooms in the same realm with the exception of nexus realms, which may have links to other realms.", "", "This segmentation means building commands are simplified for builders within a realm, as they do not have to deal with manually @add-exiting and @remove-exiting.   This also means that individual realms can be reaped without affecting the topography of other realms.", "", "Installing the realm system module will do the following things:", "", "1.  Add a property on #0 named \"realm\" to define $realm.", "2.  Define $modules.realm to this module object.", "3.  Set $room to the generic realm-aware room, and chparent all direct children of the core $room to the realm aware room.", "4.  Create a nexus realm and move all existing rooms into it.", "5.  Set $builder to the realm-aware builder and chparent all direct descendatns of the core $builder to the realm aware builder.", "6.  If $walking_utils is defined, install the realm-aware walking utilities.", "", "The installation of this module will also define `help realms'.", "", "After the installation of the realm system you will probably want to rearrange the existing rooms into realms that make sense.  In particular, nexus realms by default are listed in `help realms' with the assumption that the first room in the nexus realm is the \"name\" of the realm (that is, what players will walk to in order to build from that realm).   This is unlikely to be true for the initially created nexus realm."}
+---module/body-item-boundary
+Type: verb
+Object: module
+Name: @install
+Owner: wizard
+Perms: rd
+Args: this none none
+
+set_task_perms(player);
+realm = this:resolve_name("realm");
+if (`$realm == realm ! E_PROPNF')
+  player:notify("The Connections Realm System already appears to be installed.");
+  return;
+endif
+player:notify("This will install the Connections Realm System.");
+player:notify_lines(this:resolve_name("realm_help").("realms-install"));
+if (!$command_utils:yes_or_no("Do you want to continue installing the Connections Realm System?"))
+  player:notify("OK -- The connections realm system will not be installed.");
+  return;
+endif
+try
+  $realm = realm;
+except (E_PROPNF)
+  add_property(#0, "realm", realm, {this.owner, "r"});
+endtry
+player:tell("Set $realm to ", realm:dname("#"), ".");
+ok = 0;
+try
+  $modules.realms = this;
+  ok = 1;
+except (E_PROPNF)
+  try
+    add_property($modules, "realms", this, {this.owner, "r"});
+    ok = 1;
+  except (E_PROPNF)
+    "oh well";
+  endtry
+endtry
+if (ok)
+  player:tell("Set $modules.realm to ", this:dname("#"), ".");
+endif
+oldroom = $room;
+$room = $realm.room;
+player:tell("Set $room to ", $realm.room:dname("#"), ".");
+if (parent($room) == oldroom)
+  player:tell("Initializing realm system...");
+  player:tell("Chparenting children of ", oldroom:dname("#"), " to ", $room:dname("#"), "...");
+  for room in (children(oldroom))
+    if (room != $room)
+      chparent(room, $room);
+      player:tell("  Chparenting ", room:dname("#"), ".");
+    endif
+    $command_utils:suspend_if_needed(0);
+  endfor
+  player:tell(".. done.   Creating initial nexus realm...");
+  nexus_realm = player:_create($realm.nexus);
+  nexus_realm:set_name("first realm");
+  player:tell(".. done (", nexus_realm:dname("#"), ").  Moving all existing leaf rooms into it.");
+  move($player_start, nexus_realm);
+  for room in ($object_utils:descendants($room))
+    move(room, nexus_realm);
+    player:tell("   moving ", room:dname("#"));
+    $command_utils:suspend_if_needed(0);
+  endfor
+  player:tell(".. done.");
+endif
+builder = this:resolve_name("realm_builder");
+if (parent(builder) == $builder)
+  oldbuilder = $builder;
+  $builder = builder;
+  player:tell("Set $builder to ", builder:dname("#"), ".");
+  player:tell("Chparenting all children of ", oldbuilder:dname("#"), " to ", builder:dname(), ".");
+  for thing in (children(oldbuilder))
+    if (thing != $builder)
+      chparent(thing, $builder);
+      player:tell("   Chparented ", thing:dname("#"), ".");
+    endif
+    $command_utils:suspend_if_needed(0);
+  endfor
+  player:tell("Done.");
+endif
+walking_utils = this:resolve_name("realm_walking_utils");
+try
+  $walking_utils = walking_utils;
+  player:tell("Set $walking_utils to", walking_utils:dname("#"), ".");
+except (E_PROPNF)
+endtry
+player:tell("Realm System installation is complete.");
+---module/body-item-boundary
+Type: property-inherited
+Object: realm
+Name: key
+
+0
+---module/body-item-boundary
+Type: property-inherited
+Object: realm
+Name: aliases
+
+{"generic realm"}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm
+Name: description
+
+"This is a realm container. You should only @recycle a realm's container if there are no rooms left in the realm. If you can still enter the realm, it is not empty!"
+---module/body-item-boundary
+Type: property-inherited
+Object: realm
+Name: unique
+
+1
+---module/body-item-boundary
+Type: property-inherited
+Object: realm
+Name: dependents
+
+{}
+---module/body-item-boundary
+Type: property-inherited
+Object: nexus_realm
+Name: key
+
+0
+---module/body-item-boundary
+Type: property-inherited
+Object: nexus_realm
+Name: aliases
+
+{"generic nexus realm"}
+---module/body-item-boundary
+Type: property-inherited
+Object: nexus_realm
+Name: dependents
+
+{}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_master
+Name: key
+
+0
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_master
+Name: aliases
+
+{"realm_master", "realm master"}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_master
+Name: description
+
+"THE MASTER OF THE REALMS. Mysterious, but unmistakeably powerful."
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_master
+Name: proper
+
+0
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_master
+Name: dependents
+
+{}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_master
+Name: last_disconnect_time
+
+787980845
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_master
+Name: help
+
+0
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_master
+Name: owned_objects
+
+{module.obj_realm_exit, module.obj_realm, module.obj_realm_master, module.obj_realm_room, module.obj_nexus_realm, module.obj_realm_help}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_master
+Name: last_connect_time
+
+2147483647
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_master
+Name: ownership_quota
+
+-10000
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_master
+Name: password
+
+"UUgR0eUBWEsFg"
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_master
+Name: size_quota
+
+{1000000, 31500, 0, 0}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_room
+Name: key
+
+0
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_room
+Name: aliases
+
+{"generic realm room"}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_room
+Name: dependents
+
+{}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_room
+Name: who_location_msg
+
+{$pronoun_sub, "do", {"name", "thing", {"dc"}}}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_exit
+Name: key
+
+0
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_exit
+Name: aliases
+
+{"generic realm crossing exit"}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_exit
+Name: oarrive_msg
+
+{$pronoun_sub, "do", "arrives from another realm."}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_exit
+Name: oleave_msg
+
+{$pronoun_sub, "do", "takes off into ", {"name", "thing", {"d"}}, " realm."}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_builder
+Name: key
+
+0
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_builder
+Name: aliases
+
+{"generic realm-aware builder"}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_builder
+Name: offered
+
+#-1
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_builder
+Name: dependents
+
+{}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_builder
+Name: help
+
+module.obj_realm_help
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_walking_utils
+Name: key
+
+0
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_walking_utils
+Name: aliases
+
+{"realm-aware walking utils"}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_walking_utils
+Name: offered
+
+#-1
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_help
+Name: key
+
+0
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_help
+Name: aliases
+
+{"realm system help"}
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_help
+Name: offered
+
+#-1
+---module/body-item-boundary
+Type: property-inherited
+Object: realm_help
+Name: unconvertible_topics
+
+{"realms"}
+---module/body-item-boundary
+--- end module ---
