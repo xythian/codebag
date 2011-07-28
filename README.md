@@ -46,7 +46,7 @@ server.  That simplifies things a bit since one could write non-chat
 networked applications on top of LambdaMOO.  "MOO" is just a shorthand
 way to refer to LambdaMOO.
 
-This has its own [README](moo/README.md).
+This has its own [README](https://github.com/xythian/codebag/tree/master/moo).
 
 [wp-lambdamoo]: http://github.com/xythian/wp-lambdamoo
 [Python]: http://www.python.org/
