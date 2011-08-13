@@ -10,25 +10,9 @@ I'm using the word pretty loosely.  Things are piled into directories roughly or
 
 This README may not inventory all of it.
 
-## Dependencies
-
-This code does not represent a single, coherent project nor is it a polished, documented library.  A given bit of code will depend on whatever was conveniently handy to help get a job done.
-
 ## Python
 
 [Python][] is a handy programming language.
-
-### libraries and tools
-
-Some libraries that these scripts may depend on when convenient:
-
-   - [Python Imaging Library][PIL]: Image manipulation supporting lots of image types.  Very handy and also free.  There's a commercial version of this library which has some more features, but I have never used it.
-   - [pygame][]: Game development library for Python.  It is built on top of [SDL][].  Most of my use of pygame has been as a very convenient way to show full screen images on Windows.
-   - [pyrex][]: A tool for writing C Python extension modules in a Python-like language.
-   - [ReportLab][]: Library for creating PDFs.
-
-
-### Scripts
 
    - python/rounded-corners -- generate rounded corners for use with CSS to roundify boxes; obsolete with modern browsers using PIL.
    - python/mergeframe -- Merge a framing image with another image using PIL.
@@ -39,12 +23,11 @@ Some libraries that these scripts may depend on when convenient:
    - python/schedule.py -- An old script that plots Caltrain schedules
      as a graphic.
 
-## MOO
+## LambdaMOO
 
-[LambdaMOO][] is a MUD server.  It is essentially a programmable chat
-server.  That simplifies things a bit since one could write non-chat
-networked applications on top of LambdaMOO.  "MOO" is just a shorthand
-way to refer to LambdaMOO.
+[LambdaMOO][] is a MUD server.  It is a programmable chat server.
+That simplifies things a bit since one could write non-chat networked
+applications on top of LambdaMOO.
 
 This has its own [README](https://github.com/xythian/codebag/tree/master/moo).
 

@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# WP machine is on eastern time
+# TZ=US/Eastern; export TZ
+
+
+SOURCEFILE=$1
+
+if [ -z "${SOURCEFILE}" ]; then
+   SOURCEFILE=/home/wp/island/Waterpoint.db.new
+fi
+
+SSH=/usr/bin/ssh
+SCP=/usr/bin/scp
+DATESTR=`date +%b%d%Y-%H%M`
+WPFILENAME="Waterpoint-${DATESTR}.db.gz"
+
+if [ ! -f ${SOURCEFILE} ]; then
+   echo Missing ${SOURCEFILE}...
+   exit 1
+fi
+
+gzip < ${SOURCEFILE} > /home/wp/island/backups/${WPFILENAME}
+
