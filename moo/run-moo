@@ -1,0 +1,92 @@
+#!/bin/sh
+#
+# run-moo
+#    Runs the MOO; doesn't daemonize because it runs as a simple service.
+#    Relies on system log storage and rotation (no more -l parameter).
+#
+
+#
+# INSTALLATION
+#    Modify the variables below to fit your setup.
+#
+#
+# Directory databases are kept in.  Script will cd into here before contining.
+#
+
+ROOT=/home/moo
+
+MOODIR=$ROOT/run
+
+#
+# Location of your MOO binary.
+#
+
+MOO=$ROOT/bin/moo
+
+#
+# Base name of your database (without the .db)
+#
+
+DBNAME=Unconfigured
+
+#
+# The port your MOO runs on.
+#
+
+PORT=7777
+
+#
+# umask for the MOO process.  077 means "only let this user read or write it"
+#
+
+UMASK=077
+
+#
+# Program to gzip the database.
+#
+
+COMPRESS=xz
+
+#
+# Suffix for files compressed with above program.
+#
+
+COMPRESS_SUFFIX=xz
+
+#
+#
+TZ=America/Los_Angeles; export TZ
+
+#
+# You shouldn't have to modify anything under here.
+#
+
+if [ "${DBNAME}" = "Unconfigured" ]; then
+  echo "$0 has not been configured."
+  echo "Please edit it and set the variables for your setup."
+  exit 1
+fi
+
+cd ${MOODIR}
+
+umask ${UMASK}
+
+DB=${DBNAME}.db
+DBCHECK=${DB}.new
+
+if [ -s ${DBCHECK} ]; then
+  if [ -f ${DB} ]; then
+     echo "Moving ${DB} to ${DB}.2 and ${COMPRESS}ing it"
+     mv ${DB} ${DB}.2
+     ${COMPRESS} ${DB}.2 &
+  fi
+  echo "Moving ${DBCHECK} to ${DB}"
+  mv ${DBCHECK} ${DB}
+else
+  echo "No checkpoint file: ${DBCHECK}"
+  echo "This is probably bad unless this is the first time you've brought"
+  echo "up this db."
+  sleep 5
+fi
+
+exec ${MOO} ${DB} ${DBCHECK} +O ${PORT}

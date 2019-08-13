@@ -1,0 +1,11 @@
+[Unit]
+Description=MOO server
+
+[Service]
+Type=simple
+User=moo
+Group=moo
+ExecStart=/home/moo/bin/run-moo
+
+[Install]
+WantedBy=multi-user.target

@@ -1,6 +1,0 @@
-#!/bin/sh
-
-( 
-  tail -n 0 -f Waterpoint.log.current | /home/wp/bin/watchlog.py >>watchlog.log 2>>watchlog.err
-) &
-disown %1

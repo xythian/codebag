@@ -9,9 +9,9 @@ way to refer to LambdaMOO.
      builders and realms limit where inter-realm connections may
      happen.   I made it for the educational MOO "Connections", but it
      should work on any JHCore-based MOO.
-   - start-stop-moo.sh -- A replacement for the "restart" script that
-     ships with the server source.
-   - dbbackup/ -- Some scripts for tailing the server log and
-     triggering a script when a checkpoint is finished.
+   - run-moo -- Script that runs the MOO process
+   - moo.service -- systemd unit file that invokes run-moo.
+   
+I removed the old dbbackup/ directory as I haven't used any of those scripts in years. I currently use a little binary that watches the checkpoint destination and backups the DB to AWS S3 on update.
 
 [LambdaMOO]: http://www.lambda.moo.mud.org/
